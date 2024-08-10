@@ -82,6 +82,8 @@ int main(int argc, char**argv)
         switch (state)
         {
             case 0:
+                data_count = 0;
+                addr_count = 0;
                 break;
             case 1:
                 switch (ra) 
@@ -102,7 +104,8 @@ int main(int argc, char**argv)
                         hexstring("%c\n", sbug.type[1]);
                         hexstring("%08X\n",0xDEADBEEF);
                         hexstring("%X\n", sbug.checksum);
-                        state = 0;
+                        //state = 0;
+                        state++;
                         break;
                     default:
                         hexstring("%c\n", ra);
@@ -131,16 +134,16 @@ int main(int argc, char**argv)
                     sbug.data = ctonib(ra);
                     data_count--;
                     state++;
-                    printf("%x\n", sbug.addr);
-                    return 0;
+                    //printf("x%X\n", sbug.addr);
+                    printf("================\n");
                 } else {
                     sbug.addr <<= 4;
                     sbug.addr |= ctonib(ra);
-                    hexstring("BA: %0X data_count %d\n", ctonib(ra), data_count);
+                    hexstring("BA: x%0X data_count %d\n", ctonib(ra), data_count);
                     // TODO: fix how checksum accumulates. Should accummulate byte by byte but 
                     if (addr_count % 2) { // accumulate checksum on a hexdigit pair basis
                         sbug.checksum += (sbug.addr&0xFF);
-                        printf("%x++ %x\n", sbug.checksum, sbug.addr&0xFF);
+                        printf("x%X++ x%X\n", sbug.checksum, sbug.addr&0xFF);
                     }
                     addr_count++;
                     data_count--;
@@ -148,40 +151,37 @@ int main(int argc, char**argv)
                 break;
             case 5:
                 if (data_count == 1) {
-                    //hexstring(0xBEEF0000);
-                    hexstring("\nADDRESS: %08X______________%02X\n", sbug.addr, sbug.checksum&0xFF);
+                    // Indicates end of current line of srec line (i.e we are at the checksum byte)
+                    sbug.checksum = 0xFF - (sbug.checksum & 0xFF);
+                    hexstring("ADDRESS: x%08X______________x%02X\n", sbug.addr, sbug.checksum&0xFF);
                     state = 0;
                     //data_count = 0;
                     //addr_count = 0;
-                    return 0;
+                    //return 0;
                 } else {
                     sbug.data <<= 4;
                     sbug.data |= ctonib(ra);
                     if (data_count > 0) {
-                        sbug.checksum += (sbug.data&0xFF);
-                        printf("data_count: %d\n", data_count);
-                        PUT8(sbug.addr, sbug.data);
-                        cnt++;
+                        if (data_count % 2) {
+                            sbug.checksum += (sbug.data&0xFF);
+                            printf("x%X++ x%X\n", sbug.checksum, sbug.data&0xFF);
+                            //cnt++;
+                            //if (cnt == 32) { return 0; }
+                            i++;
+                        }
+                        //printf("data_count: %d\n", data_count);
+                        //PUT8(sbug.addr, sbug.data);
                     }
                     //PUT32(sbug.addr, sbug.data);
-                    if (cnt == 10) {
-                        printf("data_count: %d\n", data_count);
-                        printf("sub.count: %d\n", sbug.count);
-                        //return 0;
-                    }
                     sbug.addr++;
                     data_count--;
                     state = 4;
                 }
                 break;
-            //default:
-            //{
-            //    state=0;
-            //    break;
-            //}
+            default:
+                state=0;
+                break;
         }
-        i++;
     }
-
     return 0;
 }
